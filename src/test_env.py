@@ -22,9 +22,9 @@ def run_random_agent(env):
 
 
 def test_env():
-    # state=NONE porque todavia no hay un savestate propio (metadata.json esta
-    # vacio); arranca desde el power-on de la consola.
-    env = retro.make(game=GAME_ID, inttype=retro.data.Integrations.ALL, state=retro.State.NONE)
+    # state=DEFAULT usa el savestate "Start" declarado en metadata.json,
+    # guardado ya con Cyclops dentro de la partida (pasado el intro/menu).
+    env = retro.make(game=GAME_ID, inttype=retro.data.Integrations.ALL, state=retro.State.DEFAULT)
     try:
         run_random_agent(env)
     except KeyboardInterrupt:
