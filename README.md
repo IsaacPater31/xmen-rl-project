@@ -17,18 +17,33 @@ This project is my own take on that idea, using X-Men: Mutant Apocalypse instead
 
 ## Project structure
 
+```
 xmen-rl-project/
 ├── README.md
-├── requirements.txt
+├── requirements.txt         # Python deps (stable-retro, stable-baselines3, ...)
+├── setup.sh                 # creates venv/ and installs requirements.txt (run in WSL2/Linux)
+├── activate.sh              # activates the venv in your current shell (source it)
 ├── .gitignore
-├── roms/            # game ROM not included
-├── src/             # project source code
+├── .gitattributes           # forces LF line endings on scripts (Windows checkout safety)
+├── roms/                    # game ROM goes here, not included/distributed
+├── src/
+│   ├── test_env.py          # loads the env and runs a random-action sanity check
+│   └── custom_integrations/
+│       └── XMenMutantApocalypse-Snes/
+│           ├── rom.sfc      # ROM copy, gitignored (needed by stable-retro's convention)
+│           ├── rom.sha      # SHA1 of the ROM
+│           ├── data.json    # RAM addresses (health, position, ...)
+│           ├── scenario.json# reward function + done condition
+│           ├── metadata.json# default starting savestate
+│           └── Start.state  # savestate right after the intro/menu, gitignored
 ├── docs/
-│   ├── bitacora.md  # technical dev log
-│   └── capturas/    # screenshots / evidence
-├── logs/            # training logs (TensorBoard)
-├── models/          # trained models (checkpoints)
-└── videos/          # agent evaluation videos
+│   ├── bitacora.md          # technical dev log (chronological, see for full history)
+│   ├── rom-import-notes.md  # how to add the ROM + build the Integration UI + troubleshooting
+│   └── capturas/            # screenshots / evidence
+├── logs/                    # training logs (TensorBoard)
+├── models/                  # trained models (checkpoints)
+└── videos/                  # agent evaluation videos
+```
 
 ## How to run it
 
@@ -96,6 +111,26 @@ python src/test_env.py
 ```
 
 This should open an emulator window and play random moves until you `Ctrl+C`. If it opens but you don't see a window (headless WSL2, no WSLg) or you get an `ImportError: Library "GLU" not found`, see the troubleshooting notes in [`docs/rom-import-notes.md`](docs/rom-import-notes.md).
+
+### 7. Build the Integration UI (only needed for memory mapping)
+
+To find RAM addresses (health, position, etc.) and write `data.json`/`scenario.json` for real, you need Stable-Retro's **Integration UI** — a separate Qt desktop app. It is **not** distributed as a prebuilt binary anywhere; it has to be compiled from the full C++ source, completely independent of the `venv`/`requirements.txt` above.
+
+```bash
+cd ~   # anywhere outside the project repo — this is a standalone tool, not project code
+git clone https://github.com/Farama-Foundation/stable-retro.git stable-retro-src
+cd stable-retro-src
+sudo apt update
+sudo apt install -y build-essential cmake capnproto libcapnp-dev libqt5opengl5-dev qtbase5-dev zlib1g-dev python3-dev pkg-config libbz2-dev
+cmake . -DBUILD_UI=ON -UPYLIB_DIRECTORY
+make -j$(nproc)
+./gym-retro-integration
+```
+
+Notes:
+- `python3-dev`, `pkg-config`, and `libbz2-dev` aren't in Stable-Retro's own docs but are required on a stock Ubuntu/WSL2 install — without them, `cmake` fails with `Could NOT find Python (missing: Python_INCLUDE_DIRS Development.Module)` and a `_Python_INCLUDE_DIR-NOTFOUND` generate-step error.
+- `CapnProto`/`BZip2` "could not find" warnings during `cmake` are harmless (they only disable an optional search-save/load feature) as long as the final message is `Build files have been written to: ...` and `make` reaches `Built target stable_retro`.
+- The compiled `./gym-retro-integration` binary opens the ROM directly (`File → Open...`), independent of the Python `custom_integrations/` setup — it's used to explore RAM and produce the values that later go into this project's `data.json`/`scenario.json`/`.state` files by hand.
 
 ## Current status
 
