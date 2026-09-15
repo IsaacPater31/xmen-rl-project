@@ -2,7 +2,7 @@
   "info": {
     "health": {
       "address": 8260661,
-      "type": "<u2"
+      "type": "|u1"
     },
     "pos_x": {
       "address": 8260613,

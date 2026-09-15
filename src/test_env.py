@@ -1,30 +1,34 @@
-import os
-
-import stable_retro as retro
-
-# X-Men: Mutant Apocalypse no tiene integracion oficial en stable-retro
-# (python -m retro.import no lo reconoce, "Imported 0 games"), asi que usamos
-# una integracion custom en custom_integrations/. Ver docs/rom-import-notes.md.
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-GAME_ID = "XMenMutantApocalypse-Snes"
-
-retro.data.Integrations.add_custom_path(os.path.join(SCRIPT_DIR, "custom_integrations"))
+from environment import make_env
 
 
 def run_random_agent(env):
     env.reset()
+    episode = 1
+    episode_reward = 0.0
     while True:
         action = env.action_space.sample()
-        _obs, _reward, terminated, truncated, _info = env.step(action)
+        _obs, reward, terminated, truncated, info = env.step(action)
+        episode_reward += reward
         env.render()
+
+        health = info.get("health")
+        pos_x = info.get("pos_x")
+        print(
+            f"\rEp {episode} | reward paso: {reward:+7.2f} | acumulado: {episode_reward:+9.2f} "
+            f"| health: {health} | pos_x: {pos_x}   ",
+            end="",
+            flush=True,
+        )
+
         if terminated or truncated:
+            print(f"\nEpisodio {episode} terminado, reward acumulado: {episode_reward:.2f}")
+            episode += 1
+            episode_reward = 0.0
             env.reset()
 
 
 def test_env():
-    # state=DEFAULT usa el savestate "Start" declarado en metadata.json,
-    # guardado ya con Cyclops dentro de la partida (pasado el intro/menu).
-    env = retro.make(game=GAME_ID, inttype=retro.data.Integrations.ALL, state=retro.State.DEFAULT)
+    env = make_env()
     try:
         run_random_agent(env)
     except KeyboardInterrupt:
