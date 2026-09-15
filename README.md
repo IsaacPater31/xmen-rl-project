@@ -17,20 +17,18 @@ This project is my own take on that idea, using X-Men: Mutant Apocalypse instead
 
 ## Project structure
 
-```
 xmen-rl-project/
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
-├── roms/            # ROM del juego (no incluida, ver nota legal)
-├── src/             # Código fuente del proyecto
+├── roms/            # game ROM (not included, see legal note)
+├── src/             # project source code
 ├── docs/
-│   ├── bitacora.md  # Diario técnico de desarrollo
-│   └── capturas/    # Capturas de pantalla / evidencia
-├── logs/            # Logs de entrenamiento (TensorBoard)
-├── models/          # Modelos entrenados (checkpoints)
-└── videos/          # Videos de evaluación del agente
-```
+│   ├── bitacora.md  # technical dev log
+│   └── capturas/    # screenshots / evidence
+├── logs/            # training logs (TensorBoard)
+├── models/          # trained models (checkpoints)
+└── videos/          # agent evaluation videos
 
 ## How to run it
 
