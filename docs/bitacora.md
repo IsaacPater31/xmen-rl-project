@@ -100,6 +100,41 @@ Technical diary for the project. Each entry: what was tried, what worked, what d
 
 ---
 
+## [2026-09-15] — Phase 1: built the Integration UI and mapped real memory addresses
+
+**What was done:**
+- Discovered the Integration UI isn't distributed as a binary anywhere (GitHub releases have no assets) — it has to be compiled from Stable-Retro's full C++ source with Qt5, completely separate from the pip package/venv.
+- Cloned `Farama-Foundation/stable-retro` into `~/stable-retro-src` (outside the project repo) and built it with `cmake . -DBUILD_UI=ON -UPYLIB_DIRECTORY` + `make -j$(nproc)`.
+- Installed everything the build needed, in order, as each missing piece surfaced: `build-essential cmake capnproto libcapnp-dev libqt5opengl5-dev qtbase5-dev zlib1g-dev` (from the official docs), then `python3-dev pkg-config libbz2-dev` (not documented anywhere, but required — `cmake` failed on `_Python_INCLUDE_DIR-NOTFOUND` without `python3-dev`).
+- Opened `./gym-retro-integration`, loaded the ROM directly (`File → Open...`), played manually with the default keyboard mapping (arrows, Z/X/A/S, Enter for Start) to get past the intro into actual gameplay as Cyclops.
+- Saved a savestate (`Start.state`) right after entering gameplay, moved it into `src/custom_integrations/XMenMutantApocalypse-Snes/Start.state`, and pointed `metadata.json`'s `default_state` at it. Updated `test_env.py` to load with `state=retro.State.DEFAULT` instead of `State.NONE`.
+- Used the Search panel (`Window → Show search...`) to hunt for the player's health address: seeded a search, then alternated `Unchanged` (when nothing happened) and `Decreased` (right after taking a confirmed hit) to kill off noise from unrelated addresses (timers, animation counters) instead of just spamming `Decreased`, which too easily zeroes out all candidates.
+- Cross-referenced with a [TASVideos forum post](https://tasvideos.org/Forum/Topics/1584?CurrentPage=2) that shares a RAM-watch list for this exact game (enemy/boss HP, player position/speed) — verified by fetching the actual page content, not taken on faith.
+
+**What worked:**
+- **`health`** → `0x7E0C35` (`<u2`): confirmed empirically — drops with each hit (63 → 1 near death), hits exactly 0 on death. Some flicker between 0 and 63 right at the lethal hit (looks like a death-animation/invincibility-blink artifact), accepted as noise for now.
+- **`pos_x`** → `0x7E0C05` (`<u2`), from the TASVideos list: confirmed by walking right (increases) and left (decreases, floors around 20).
+- **`pos_y`** → `0x7E0C08` (`<u2`), from the TASVideos list: confirmed by jumping (decreases going up, as expected for screen coordinates).
+- Wrote the first real `data.json` (all 3 variables above) and `scenario.json` (`done` when `health == 0`; reward: penalty on `health` decreasing, reward on `pos_x` increasing) in `src/custom_integrations/XMenMutantApocalypse-Snes/`, replacing the empty placeholders from Phase 0.2.
+
+**What didn't work / issues:**
+- First guess for "lives" — `0x7E0C34`, a byte that happened to read `2` once — turned out to be unrelated character/animation state: it changed on movement and on getting hit (jumping to values like 5 or 8), not just on losing a life. Dropped it; not needed anyway, since the RL environment just treats every death as an episode reset regardless of the game's own lives counter.
+- A separate, unrelated delta-search (candidates around `0x78E`/`0x793`, large values like 4605240/14707808) was a red herring — most likely a frame counter or similar, not tied to player state at all.
+- Found by accident that `0x7E0C33`/`0x7E0C34`, read as multi-digit BCD (`Repr::BCD = 'd'` in Stable-Retro's own `memory.h`), shows values consistent with an internal **score** counter (200, 20000, 2000000 depending on how many BCD digits you read) — contradicts the earlier research guess that this game has no score. Not used in the reward yet; noted for later.
+
+**Decisions and why:**
+- Kept `data.json`/`scenario.json` deliberately minimal (health + x-position only) instead of also wiring up enemy/boss HP — the TASVideos-sourced enemy addresses are unverified by us, and the point of this phase was getting *something* real and self-verified working end to end, not a complete reward function on the first pass.
+- Documented the Integration UI build's full dependency list in the README so a clean machine doesn't have to rediscover `python3-dev`/`pkg-config`/`libbz2-dev` the hard way like we did.
+
+**Screenshots or evidence:** none yet — pending a capture of the Integration UI mid-search for `docs/capturas/`.
+
+**Pending:**
+- Verify/use the score address (`0x7E0C33`, BCD) if it turns out useful for the reward.
+- Consider whether to also map enemy/boss HP now that we know the workflow, or move straight to a first PPO training run with what we have.
+- First PPO training script with Stable-Baselines3, using the `feature/reward-mapping` work once merged.
+
+---
+
 ## Template for future entries
 
 ## [Date] — Phase X: [phase name]
