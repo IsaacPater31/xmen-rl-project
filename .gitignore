@@ -2,6 +2,12 @@
 roms/*
 !roms/.gitkeep
 
+# Copia de la ROM dentro de la integracion custom de stable-retro
+# (data.json/scenario.json/metadata.json/rom.sha si se trackean, la ROM no)
+src/custom_integrations/*/rom.sfc
+src/custom_integrations/*/rom.smc
+src/custom_integrations/*/*.state
+
 # Modelos entrenados
 models/*.zip
 
