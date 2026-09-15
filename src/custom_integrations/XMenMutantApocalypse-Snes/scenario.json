@@ -2,8 +2,8 @@
   "done": {
     "variables": {
       "health": {
-        "op": "equal",
-        "reference": 0
+        "op": "less-or-equal",
+        "reference": 1
       }
     }
   },
@@ -11,11 +11,7 @@
     "variables": {
       "health": {
         "reward": 0.0,
-        "penalty": 1.0
-      },
-      "pos_x": {
-        "reward": 1.0,
-        "penalty": 0.0
+        "penalty": 5.0
       }
     }
   }

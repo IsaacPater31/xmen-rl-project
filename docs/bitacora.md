@@ -135,6 +135,40 @@ Technical diary for the project. Each entry: what was tried, what worked, what d
 
 ---
 
+## [2026-09-15] — Phase 2: first PPO training run, two reward bugs found and fixed mid-run
+
+**What was done:**
+- Split the environment-building code out of `test_env.py` into `src/environment.py` (`make_env()`), so it's not duplicated between the manual test script and training — single place that registers the custom integration, calls `retro.make()`, and applies wrappers.
+- Wrote `src/train.py` with one function per responsibility (SRP): `build_env`, `build_model`, `build_checkpoint_callback`, `train_model`, `save_model`, orchestrated by `train()`; `main()` only calls `train()`. Uses PPO (`CnnPolicy`) from Stable-Baselines3, logs to TensorBoard (`logs/`), checkpoints every 10k steps to `models/`.
+- Started the first real training run (`total_timesteps=200_000`). Caught two serious bugs from watching the live metrics (`approx_kl`, `value_loss`, `ep_rew_mean`) rather than just trusting it was fine:
+  1. **`health` read as `<u2` (2-byte word)**: right at the moment of a hit, the neighboring byte (`0x7E0C36`) transiently holds garbage during the game's non-atomic memory update, so the word read spikes into the hundreds for a frame. That single corrupted reading, multiplied by our `penalty=5.0`, produced reward swings of tens of thousands and `approx_kl` of 181 (should be ~0.01-0.05) — a clearly broken/unstable policy update. Confirmed by directly asking what the corrupted value looked like ("valores en unidades de 100") before fixing. **Fix**: changed `data.json`'s `health` type to `|u1` (single byte) — matches the actual confirmed 0-63 range and ignores the contaminated neighbor byte.
+  2. **`done` on `health == 0` never firing reliably**: the death-flicker (health bouncing 0↔63 for a frame or two right before settling) meant the exact frame sampled often wasn't a clean 0, so episodes ran past 10,000 steps without ending — confirmed directly in the logs (`ep_len_mean` stuck unchanged for several iterations while `total_timesteps` kept climbing). **Fix**: changed `done` to `"op": "less-or-equal", "reference": 1` (stable-retro supports this via `Operation::LESS_OR_EQUAL`, checked in the installed source) — catches the death window even if the exact-0 frame is missed.
+- Added `MAX_EPISODE_STEPS = 10_000` via `gymnasium.wrappers.TimeLimit` in `environment.py` as a hard safety net regardless of `done` — no episode can run forever and corrupt a whole training iteration's data.
+- Redesigned the position/progress reward: moved it out of `scenario.json` (was `pos_x` reward=1.0/penalty=0.0 — rewarded every rightward wiggle for free while leftward movement cost nothing, letting the agent farm reward by jittering in place) into a new `src/wrappers.py` (`MaxProgressRewardWrapper`), which only rewards reaching a **new farthest `pos_x`** for the episode. Retreating (to fight better, dodge, etc.) costs nothing but can't be farmed either. `scenario.json` now only carries the `health` penalty (weight bumped to 5.0, so avoiding damage matters much more than a pixel of movement).
+- Added resume-from-checkpoint support to `train.py`: `build_model()` loads `models/ppo_xmen_cyclops.zip` with `PPO.load(...)` if it already exists instead of always creating a fresh randomly-initialized model, and `train_model()` calls `learn(..., reset_num_timesteps=False)` so a resumed run trains only the remaining steps toward the original `total_timesteps` target instead of adding a full new batch on top.
+
+**What worked:**
+- After both fixes, training metrics became sane: `approx_kl` mostly in the 0.001-0.3 range (occasional spikes to ~0.5-2 that self-correct within 1-2 iterations — a recurring but non-destructive pattern, not investigated further), `value_loss` mostly single digits instead of hundreds of thousands, `ep_rew_mean` in the thousands instead of -60,000+.
+- Over the run so far (paused around 137,000/200,000 steps, ~69%), `ep_len_mean` climbed slowly and steadily from ~9,750 to ~9,920 and `ep_rew_mean` from ~6,400 to ~6,470 in lockstep — a small but real, sustained improvement, not noise (confirmed by tabulating the values across many checkpoints rather than eyeballing single readings).
+
+**What didn't work / issues:**
+- Both bugs above would have been very easy to miss without actually watching PPO's own training diagnostics (`approx_kl`, `value_loss`) — the environment "worked" in the sense that it didn't crash, it was just quietly feeding the agent garbage reward.
+- `explained_variance` bounces between very negative and very positive (-16 to 0.99) run to run without a clear trend yet — not acted on, just noted as noisy this early.
+
+**Decisions and why:**
+- Chose "farthest point reached" over a plain per-step position delta specifically to avoid conflicting with wanting the character to retreat tactically without being penalized — a deliberate reward-shaping choice, not the library default.
+- Left the recurring `approx_kl` spikes alone instead of tuning `learning_rate` preemptively — they self-correct every time so far; would revisit only if they start compounding instead of resolving.
+
+**Screenshots or evidence:** none yet.
+
+**Pending:**
+- Resume training (now supported) until `total_timesteps` reaches 200,000, then evaluate whether `ep_rew_mean` keeps climbing.
+- Write a "watch the trained agent play" script (load the saved model, render, `model.predict()` instead of random actions) to visually sanity-check behavior alongside the TensorBoard curves.
+- Revisit the recurring `approx_kl` spikes / possibly tune `learning_rate` if they stop self-correcting.
+- Investigate the score address (`0x7E0C33`, BCD) and enemy/boss HP (TASVideos-sourced, unverified) as possible additional reward signals.
+
+---
+
 ## Template for future entries
 
 ## [Date] — Phase X: [phase name]
