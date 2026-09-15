@@ -1,0 +1,18 @@
+# ROMs (no se distribuyen)
+roms/*
+!roms/.gitkeep
+
+# Modelos entrenados
+models/*.zip
+
+# Logs de entrenamiento (TensorBoard, etc.)
+logs/*
+
+# Videos generados
+videos/*.mp4
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
