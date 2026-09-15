@@ -21,7 +21,7 @@ xmen-rl-project/
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
-├── roms/            # game ROM (not included, see legal note)
+├── roms/            # game ROM not included
 ├── src/             # project source code
 ├── docs/
 │   ├── bitacora.md  # technical dev log
