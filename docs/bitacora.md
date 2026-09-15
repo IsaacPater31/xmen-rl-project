@@ -21,6 +21,85 @@ Technical diary for the project. Each entry: what was tried, what worked, what d
 
 ---
 
+## [2026-09-14] — Phase 0.1: Windows install failed, pivoted to WSL2
+
+**What was done:**
+- Wrote `setup.bat`/`activate.bat` to install dependencies natively on Windows.
+- Ran `setup.bat`, which failed while building `stable-retro`.
+
+**What worked:**
+- Nothing on the native Windows path — recorded here so I don't retry it later.
+
+**What didn't work / issues:**
+- `pip install stable-retro` tried to build from source (`CMake Error: ... CMAKE_C_COMPILER not set`, `Unix Makefiles` generator not available on Windows).
+- Root cause: `stable-retro` only publishes wheels for Linux (manylinux) and macOS (arm64) — there is no native Windows wheel, so pip always falls back to a source build on Windows, and the project isn't set up to compile with MSVC anyway.
+- Farama's own docs confirm Windows is only supported via WSL2.
+
+**Decisions and why:**
+- Moved the whole dev workflow into WSL2 (Ubuntu, already installed on this machine) instead of trying to get a native Windows compiler toolchain working — matches how the project is actually tested upstream, much less fragile than fighting CMake/MSVC.
+- Replaced `setup.bat`/`activate.bat` with `setup.sh`/`activate.sh` (bash, run from the WSL shell).
+
+**Screenshots / evidence:** none.
+
+**Pending:**
+- Confirm `python src/test_env.py` runs (and renders) correctly from inside WSL2.
+- Decide if the repo should move to a native WSL path (`~/...`) instead of `/mnt/d/...` if I/O becomes slow during training.
+
+---
+
+## [2026-09-14] — Phase 0.2: no official integration for the game, built a custom one
+
+**What was done:**
+- Installed dependencies successfully from WSL2 (`bash setup.sh`), needed `sudo apt install python3.14-venv` first.
+- Ran `python -m retro.import roms/` on the X-Men: Mutant Apocalypse ROM. Result: `Imported 0 games`.
+- Checked the installed `stable_retro/data/stable/` folder directly: no `XMen*-Snes` integration exists, only `XMenMojoWorld-Sms` (a different game, different console).
+- Built a custom integration by hand at `src/custom_integrations/XMenMutantApocalypse-Snes/`, following `stable_retro`'s own conventions (read from its installed source, `stable_retro/data/__init__.py`, to confirm the ROM must be literally named `rom.<ext>` and how `rom.sha` is formatted).
+
+**What worked:**
+- `retro.data.Integrations.add_custom_path(...)` + `inttype=retro.data.Integrations.ALL` + `state=retro.State.NONE` in `retro.make()` is enough to load a game with no metadata/state file at all.
+
+**What didn't work / issues:**
+- `retro.import` gives no clear error when the ROM just isn't recognized — it silently reports 0 imports instead of saying "unsupported game", which made it look like the ROM file itself was wrong at first.
+
+**Decisions and why:**
+- Going with a custom integration instead of hunting for an alternate ROM/game — X-Men: Mutant Apocalypse is the whole point of the project (the cousin/Mario anecdote), so building the mapping ourselves is expected work, not a blocker to route around.
+- `data.json`/`scenario.json` are intentionally empty placeholders for now (reward always 0, no `done` from variables) — good enough to confirm the ROM boots inside the emulator; real memory mapping is separate, larger work.
+- The ROM copy inside `custom_integrations/` is gitignored, same as `roms/` — it's still the same copyrighted file, just duplicated for stable-retro's folder convention.
+
+**Screenshots or evidence:** pending — will add once `test_env.py` confirms the render window opens.
+
+**Pending:**
+- Confirm `python src/test_env.py` boots the game and renders (still running in WSL2 with WSLg).
+- Use the Integration UI (separate GUI app from Farama-Foundation/stable-retro releases) to find real RAM addresses for health/lives/score/position and fill in `data.json` + `scenario.json` for real.
+- Create at least one `.state` savestate past the intro/menus so training doesn't restart from the title screen every episode.
+
+---
+
+## [2026-09-14] — Phase 0.3: render confirmed working
+
+**What was done:**
+- Ran `python src/test_env.py`. First attempt failed with `ImportError: Library "GLU" not found` — `pyglet` (used by `stable-retro` for rendering) needs system-level OpenGL libraries that a fresh WSL2/Ubuntu install doesn't have.
+- Installed `libglu1-mesa`, `freeglut3-dev`, and `libgl1` via `apt` (`libgl1-mesa-glx` from the first attempt had no installation candidate on this Ubuntu version — got renamed to `libgl1`).
+- Re-ran `python src/test_env.py`: the emulator window opened and the game renders correctly with random actions.
+
+**What worked:**
+- The custom integration (`src/custom_integrations/XMenMutantApocalypse-Snes/`) with empty `data.json`/`scenario.json` and `state=retro.State.NONE` is enough to boot and render the actual game — confirms the whole pipeline (ROM → custom integration → `retro.make()` → render) is wired correctly end to end.
+
+**What didn't work / issues:**
+- The missing-library error message didn't obviously point at "install these apt packages" — took inspecting the traceback's own hint (`apt-get install python-opengl`, which is the wrong fix — that's PyOpenGL, not the system `libGLU.so`) plus knowing WSL2/Ubuntu minimal installs skip GL libraries entirely.
+
+**Decisions and why:**
+- Documented both the WSLg troubleshooting and this separate OpenGL-libraries troubleshooting as two distinct sections in `docs/rom-import-notes.md`, since they look similar ("nothing renders") but have unrelated causes and fixes — worth keeping apart for future setups on a new machine.
+
+**Screenshots or evidence:** none yet — will add a screenshot to `docs/capturas/` next time.
+
+**Pending:**
+- Use the Integration UI to find real RAM addresses (health/lives/score/position) and fill in `data.json` + `scenario.json` for a real reward signal.
+- Create at least one `.state` savestate past the intro/menus so training doesn't restart from the title screen every episode.
+- Once there's a real reward signal, write the first PPO training script with Stable-Baselines3.
+
+---
+
 ## Template for future entries
 
 ## [Date] — Phase X: [phase name]
