@@ -4,9 +4,9 @@ A reinforcement learning agent that learns to play **X-Men: Mutant Apocalypse** 
 
 ## Why this project
 
-Years ago I saw my cousin working on something like this with Super Mario — I don't remember exactly what he built or how far he got, but I remember him training some kind of AI to play it, by hand, without any of the tools we have today. That memory stuck with me.
+Years ago I saw my cousin working on something like this with Super Mario, i don't remember exactly what he built or how far he got, but I remember him training some kind of AI to play it, by hand, without any of the tools we have today. That memory stuck with me.
 
-This project is my own take on that idea, using X-Men: Mutant Apocalypse instead of Mario, and modern RL libraries instead of building everything from scratch. It's not meant to be innovative or a polished product — it's a personal project to understand, end to end, how you actually train an agent that learns by playing, and to document the whole process properly.
+This project is my own take on that idea, using X-Men: Mutant Apocalypse instead of Mario, and modern RL libraries instead of building everything from scratch. It's not meant to be innovative, it's a personal project to understand, end to end, how you actually train an agent that learns by playing, and to document the whole process properly.
 
 ## Stack
 
